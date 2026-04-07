@@ -1,736 +1,1514 @@
 <!DOCTYPE html>
-<html lang="si">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>මගේ ආදරේ</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --rose:       #c2185b;
-            --rose-light: #f48fb1;
-            --rose-deep:  #880e4f;
-            --gold:       #ffd700;
-            --gold-light: #fff9c4;
-            --cream:      #fff8f9;
-            --glow:       rgba(194, 24, 91, 0.35);
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Calculator</title>
+  <style>
+    /* ================================================================
+       ROOT & RESET
+    ================================================================ */
+    *, *::before, *::after {
+      margin: 0; padding: 0; box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-user-select: none; user-select: none;
+    }
+    :root {
+      --bg-deep:    #0a0a12;
+      --bg-card:    #12121f;
+      --bg-surface: #1a1a2e;
+      --bg-item:    #1e1e35;
+      --border:     #252540;
+      --accent1:    #4a8fff;
+      --accent2:    #9b5de5;
+      --accent-gr:  linear-gradient(135deg, #4a8fff, #9b5de5);
+      --danger:     #ff4444;
+      --warn:       #ff9f0a;
+      --ok:         #34d399;
+      --text-hi:    #f0f0f8;
+      --text-mid:   #9090b0;
+      --text-lo:    #50507a;
+      --calc-bg:    #1c1c1e;
+      --calc-num:   #333335;
+      --calc-fn:    #2c2c2e;
+      --calc-op:    #ff9f0a;
+      --calc-disp:  #1c1c1e;
+    }
+    html, body {
+      height: 100%; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      background: var(--calc-bg);
+      color: var(--text-hi);
+    }
+    /* ================================================================
+       VIEW SYSTEM  — only one .view.active shown at a time
+    ================================================================ */
+    .view {
+      position: fixed; inset: 0;
+      display: none; flex-direction: column;
+      opacity: 0; transition: opacity 0.25s ease;
+    }
+    .view.active { display: flex; opacity: 1; }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* ================================================================
+       ①  SCIENTIFIC CALCULATOR  (Default disguise)
+    ================================================================ */
+    #calc-view { background: var(--calc-bg); }
 
-        body {
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: 'Iskoola Pota', 'Malgun Gothic', sans-serif;
-            overflow: hidden;
-            background: #1a0010;
-            cursor: default;
-        }
+    #calc-display {
+      flex: 1;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      padding: 8px 20px 6px;
+      background: var(--calc-disp);
+      min-height: 0;
+    }
+    #calc-history {
+      font-size: 18px; color: #606068; text-align: right;
+      min-height: 24px; word-break: break-all; line-height: 1.3;
+    }
+    #calc-result {
+      font-size: 62px; font-weight: 250; text-align: right;
+      color: #fff; word-break: break-all; line-height: 1.1;
+      letter-spacing: -2px;
+    }
+    /* Scientific function row */
+    .calc-sci-row {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1px; background: #000;
+    }
+    /* Main button grid */
+    #calc-main-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1px; background: #000;
+    }
+    .cb {
+      height: 78px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; font-weight: 400;
+      cursor: pointer; transition: filter 0.08s;
+      position: relative;
+    }
+    .cb:active { filter: brightness(1.4); }
+    .cb-sci { height: 46px; font-size: 15px; font-weight: 400; background: var(--calc-fn); color: #d0d0d8; }
+    .cb-fn  { background: #636366; color: #fff; font-size: 24px; }
+    .cb-op  { background: var(--calc-op); color: #fff; }
+    .cb-op.active-op { background: #fff; color: var(--calc-op); }
+    .cb-num { background: var(--calc-num); color: #fff; }
+    .cb-zero { grid-column: span 2; justify-content: flex-start; padding-left: 30px; font-size: 28px; }
+    .cb-eq  { background: var(--calc-op); color: #fff; }
 
-        /* ─── Animated mesh background ─── */
-        .bg-canvas {
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            background:
-                radial-gradient(ellipse 80% 60% at 20% 30%, #3d0028 0%, transparent 60%),
-                radial-gradient(ellipse 60% 80% at 80% 70%, #2a0020 0%, transparent 60%),
-                radial-gradient(ellipse 100% 100% at 50% 50%, #0d0008 0%, #1a0010 100%);
-            animation: bgShift 12s ease-in-out infinite alternate;
-        }
-        @keyframes bgShift {
-            0%   { filter: hue-rotate(0deg) brightness(1); }
-            100% { filter: hue-rotate(15deg) brightness(1.15); }
-        }
+    /* ================================================================
+       ②  DECOY VIEW  — fake iOS Notes app
+    ================================================================ */
+    #decoy-view {
+      background: #f2f2f7;
+      color: #000;
+      overflow-y: auto;
+    }
+    .decoy-topbar {
+      background: rgba(242,242,247,0.9);
+      backdrop-filter: blur(12px);
+      padding: 54px 16px 10px;
+      border-bottom: 0.5px solid #c6c6c8;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .decoy-topbar h1 { font-size: 34px; font-weight: 700; color: #000; }
+    .decoy-count     { font-size: 13px; color: #6c6c70; text-align: center; padding: 8px; }
+    .decoy-note {
+      background: #fff;
+      margin: 0 0 0.5px; padding: 14px 16px;
+      cursor: pointer;
+    }
+    .decoy-note:first-of-type { border-radius: 0; }
+    .dn-head { display: flex; justify-content: space-between; align-items: baseline; }
+    .dn-title { font-size: 15px; font-weight: 600; color: #000; }
+    .dn-date  { font-size: 13px; color: #aeaeb2; }
+    .dn-body  { font-size: 13px; color: #6c6c70; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .decoy-toolbar {
+      background: rgba(242,242,247,0.9);
+      backdrop-filter: blur(12px);
+      border-top: 0.5px solid #c6c6c8;
+      padding: 10px 24px 28px;
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: auto;
+    }
+    .decoy-toolbar span { font-size: 12px; color: #6c6c70; }
+    .decoy-compose {
+      width: 34px; height: 34px;
+      background: none; border: none;
+      font-size: 26px; color: #ff9f0a; cursor: pointer;
+    }
 
-        /* ─── Grain overlay ─── */
-        .grain {
-            position: fixed;
-            inset: 0;
-            z-index: 1;
-            opacity: 0.04;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-            background-size: 150px;
-            pointer-events: none;
-        }
+    /* ================================================================
+       ③  SETUP VIEW  — session configuration
+    ================================================================ */
+    #setup-view {
+      background: var(--bg-deep);
+      align-items: center; justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .setup-wrap {
+      width: 100%; max-width: 420px;
+      animation: slideUp 0.35s cubic-bezier(.16,1,.3,1) both;
+    }
+    .setup-header {
+      text-align: center; margin-bottom: 28px;
+    }
+    .setup-icon {
+      width: 72px; height: 72px; border-radius: 20px;
+      background: var(--accent-gr);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 36px; margin-bottom: 14px;
+      box-shadow: 0 8px 32px rgba(74,143,255,0.3);
+    }
+    .setup-header h2 { font-size: 24px; font-weight: 700; color: var(--text-hi); }
+    .setup-header p  { font-size: 13px; color: var(--text-lo); margin-top: 4px; }
+    .setup-section {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 16px; overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .setup-row {
+      padding: 0 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .setup-row:last-child { border-bottom: none; }
+    .setup-row label {
+      display: block; font-size: 11px; font-weight: 600;
+      color: var(--text-lo); text-transform: uppercase;
+      letter-spacing: 0.6px; padding-top: 10px;
+    }
+    .setup-row input, .setup-row select {
+      width: 100%; background: transparent;
+      border: none; outline: none;
+      color: var(--text-hi); font-size: 15px;
+      padding: 6px 0 10px;
+    }
+    .setup-row input::placeholder { color: var(--text-lo); }
+    .role-pills {
+      display: flex; gap: 6px; padding: 8px 0 12px;
+    }
+    .role-pill {
+      flex: 1; padding: 8px 0; border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent; color: var(--text-mid);
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .role-pill.active {
+      background: var(--accent-gr); border-color: transparent;
+      color: #fff;
+    }
+    .setup-submit {
+      width: 100%; padding: 15px;
+      background: var(--accent-gr);
+      border: none; border-radius: 14px;
+      color: #fff; font-size: 16px; font-weight: 600;
+      cursor: pointer; margin-top: 4px;
+      box-shadow: 0 4px 20px rgba(74,143,255,0.25);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .setup-submit:active { transform: scale(0.98); box-shadow: none; }
+    .setup-error {
+      color: var(--danger); font-size: 13px;
+      text-align: center; min-height: 20px;
+      margin-top: 8px;
+    }
+    .setup-security-note {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(52,211,153,0.08);
+      border: 1px solid rgba(52,211,153,0.2);
+      border-radius: 10px; padding: 10px 12px;
+      margin-top: 12px;
+    }
+    .setup-security-note span { font-size: 12px; color: var(--ok); line-height: 1.5; }
 
-        /* ─── Petals canvas ─── */
-        #petalCanvas {
-            position: fixed;
-            inset: 0;
-            z-index: 2;
-            pointer-events: none;
-        }
+    /* ================================================================
+       ④  CHAT VIEW
+    ================================================================ */
+    #chat-view { background: var(--bg-deep); }
 
-        /* ─── Sparkle layer ─── */
-        .sparkle-layer {
-            position: fixed;
-            inset: 0;
-            z-index: 3;
-            pointer-events: none;
-        }
-        .spark {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            border-radius: 50%;
-            background: var(--gold);
-            animation: sparkAnim linear infinite;
-            opacity: 0;
-        }
-        @keyframes sparkAnim {
-            0%   { transform: scale(0) rotate(0deg);   opacity: 0; }
-            30%  { opacity: 1; }
-            70%  { opacity: 0.6; }
-            100% { transform: scale(1.5) rotate(180deg); opacity: 0; }
-        }
+    /* ── Header ── */
+    #chat-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 48px 14px 12px;
+      display: flex; align-items: center; gap: 12px;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .avatar-wrap { position: relative; flex-shrink: 0; }
+    .peer-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--accent-gr);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; font-weight: 700; color: #fff;
+    }
+    .online-dot {
+      width: 11px; height: 11px; border-radius: 50%;
+      background: #ccc;
+      border: 2px solid var(--bg-surface);
+      position: absolute; bottom: 0; right: 0;
+      transition: background 0.3s;
+    }
+    .online-dot.online { background: var(--ok); }
 
-        /* ─── Card wrapper ─── */
-        .card-wrapper {
-            position: relative;
-            z-index: 10;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
+    .peer-info { flex: 1; min-width: 0; }
+    .peer-name   { font-size: 15px; font-weight: 600; color: var(--text-hi); }
+    .peer-status { font-size: 12px; color: var(--text-lo); margin-top: 1px; transition: color 0.3s; }
+    .peer-status.online  { color: var(--ok); }
+    .peer-status.typing  { color: var(--accent1); font-style: italic; }
+    .peer-status.p2p     { color: var(--ok); }
 
-        /* Golden ring glow behind card */
-        .card-glow {
-            position: absolute;
-            width: 340px;
-            height: 460px;
-            border-radius: 30px;
-            background: conic-gradient(
-                from 0deg,
-                #ffd700, #c2185b, #ff4081, #ffd700, #c2185b, #ffd700
-            );
-            animation: rotateBorder 6s linear infinite;
-            filter: blur(18px);
-            opacity: 0.55;
-            z-index: -1;
-        }
-        @keyframes rotateBorder {
-            0%   { transform: rotate(0deg) scale(1.05); }
-            100% { transform: rotate(360deg) scale(1.05); }
-        }
+    .hdr-actions { display: flex; gap: 6px; }
+    .hdr-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: none; background: rgba(255,255,255,0.06);
+      color: var(--text-mid); font-size: 15px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .hdr-btn:active { background: rgba(255,255,255,0.12); }
+    #nuke-btn { background: rgba(255,68,68,0.12); color: var(--danger); }
 
-        /* ─── Card ─── */
-        .card {
-            width: 340px;
-            min-height: 460px;
-            background: linear-gradient(160deg,
-                rgba(255,248,249,0.13) 0%,
-                rgba(255,220,230,0.08) 50%,
-                rgba(194,24,91,0.05) 100%
-            );
-            backdrop-filter: blur(28px) saturate(1.4);
-            -webkit-backdrop-filter: blur(28px) saturate(1.4);
-            border: 1px solid rgba(255, 182, 193, 0.22);
-            border-radius: 28px;
-            padding: 38px 28px 34px;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-            box-shadow:
-                0 0 0 1px rgba(255,215,0,0.12),
-                0 30px 60px rgba(0,0,0,0.55),
-                inset 0 1px 0 rgba(255,255,255,0.12);
-        }
+    /* ── Connection banner ── */
+    #conn-banner {
+      background: rgba(255,159,10,0.1);
+      border-bottom: 1px solid rgba(255,159,10,0.2);
+      padding: 7px 16px;
+      text-align: center; font-size: 12px; color: var(--warn);
+      display: none; flex-shrink: 0;
+    }
+    #conn-banner.show { display: block; }
 
-        /* Inner shimmer lines */
-        .card::before {
-            content: '';
-            position: absolute;
-            top: -60%;
-            left: -60%;
-            width: 220%;
-            height: 220%;
-            background: conic-gradient(
-                from 90deg at 40% 40%,
-                transparent 0deg,
-                rgba(255,215,0,0.04) 60deg,
-                transparent 120deg
-            );
-            animation: shimmerSpin 18s linear infinite;
-            pointer-events: none;
-        }
-        @keyframes shimmerSpin {
-            0%   { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+    /* E2EE indicator */
+    .e2ee-badge {
+      display: flex; align-items: center; gap: 3px;
+      font-size: 11px; color: var(--ok);
+      background: rgba(52,211,153,0.1);
+      border: 1px solid rgba(52,211,153,0.2);
+      border-radius: 20px; padding: 3px 8px;
+      white-space: nowrap;
+    }
 
-        /* Decorative corner ornaments */
-        .card::after {
-            content: '✦';
-            position: absolute;
-            top: 14px;
-            right: 18px;
-            font-size: 14px;
-            color: rgba(255,215,0,0.4);
-            animation: twinkle 3s ease-in-out infinite;
-        }
-        .corner-tl {
-            position: absolute;
-            top: 14px;
-            left: 18px;
-            font-size: 14px;
-            color: rgba(255,215,0,0.4);
-            animation: twinkle 3s ease-in-out infinite 1.5s;
-        }
-        @keyframes twinkle {
-            0%, 100% { opacity: 0.3; transform: scale(1); }
-            50%       { opacity: 1;   transform: scale(1.3) rotate(30deg); }
-        }
+    /* ── Messages ── */
+    #chat-messages {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      padding: 14px 14px 8px;
+      display: flex; flex-direction: column; gap: 6px;
+      scroll-behavior: smooth;
+    }
+    #chat-messages::-webkit-scrollbar { width: 3px; }
+    #chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-        /* ─── GIF image ─── */
-        .gif-ring {
-            position: relative;
-            display: inline-block;
-            margin-bottom: 22px;
-        }
-        /* Spinning golden ring */
-        .gif-ring::before {
-            content: '';
-            position: absolute;
-            inset: -5px;
-            border-radius: 50%;
-            background: conic-gradient(
-                #ffd700 0deg, #ff4081 120deg, #c2185b 240deg, #ffd700 360deg
-            );
-            animation: ringRotate 4s linear infinite;
-            z-index: -1;
-        }
-        @keyframes ringRotate {
-            0%   { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        /* Soft glow behind image */
-        .gif-ring::after {
-            content: '';
-            position: absolute;
-            inset: -15px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(244,143,177,0.5) 0%, transparent 70%);
-            animation: pulseGlow 2.5s ease-in-out infinite;
-            z-index: -2;
-        }
-        @keyframes pulseGlow {
-            0%, 100% { opacity: 0.5; transform: scale(1); }
-            50%       { opacity: 1;   transform: scale(1.18); }
-        }
+    .msg-row {
+      display: flex;
+      animation: msgPop 0.2s cubic-bezier(.16,1,.3,1) both;
+    }
+    .msg-row.sent { justify-content: flex-end; }
+    .msg-row.recv { justify-content: flex-start; }
 
-        #displayGif {
-            width: 130px;
-            height: 130px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 4px solid #1a0010;
-            display: block;
-            transition: opacity 0.5s ease;
-        }
+    .bubble {
+      max-width: 78%; padding: 9px 13px;
+      border-radius: 18px; font-size: 15px; line-height: 1.45;
+      word-break: break-word; position: relative;
+    }
+    .bubble.sent {
+      background: linear-gradient(135deg, #295fbf, #6b34b8);
+      color: #fff;
+      border-bottom-right-radius: 5px;
+    }
+    .bubble.recv {
+      background: var(--bg-item);
+      color: var(--text-hi);
+      border-bottom-left-radius: 5px;
+    }
+    .bubble.burn-msg { border: 1px solid rgba(255,159,10,0.5); }
 
-        /* ─── Decorative divider ─── */
-        .divider {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin: 0 auto 20px;
-            width: 80%;
-            opacity: 0.5;
-        }
-        .divider::before, .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: linear-gradient(to right, transparent, #f48fb1, transparent);
-        }
-        .divider span { font-size: 12px; color: #f48fb1; }
+    .bubble-meta {
+      display: flex; align-items: center; gap: 5px;
+      margin-top: 4px; justify-content: flex-end;
+    }
+    .bubble-time { font-size: 10px; color: rgba(255,255,255,0.45); }
+    .bubble-burn { font-size: 10px; color: var(--warn); }
 
-        /* ─── Message ─── */
-        .message-box {
-            min-height: 110px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 26px;
-            position: relative;
-        }
+    .msg-image {
+      max-width: 100%; max-height: 240px;
+      border-radius: 10px; display: block;
+      margin-bottom: 4px; object-fit: cover;
+    }
+    .msg-video {
+      max-width: 100%; border-radius: 10px;
+      display: block; margin-bottom: 4px;
+    }
 
-        #messageText {
-            color: #ffe0ec;
-            font-size: 15.5px;
-            line-height: 1.9;
-            font-weight: 300;
-            letter-spacing: 0.02em;
-            transition: opacity 0.4s ease, transform 0.4s ease;
-            text-shadow: 0 0 30px rgba(244,143,177,0.3);
-        }
-        #messageText.fade-out {
-            opacity: 0;
-            transform: translateY(8px);
-        }
-        #messageText.fade-in {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    .sys-msg {
+      text-align: center; font-size: 11.5px;
+      color: var(--text-lo); padding: 3px 0;
+    }
 
-        /* ─── Counter badge ─── */
-        .counter {
-            font-size: 11px;
-            color: rgba(255,215,0,0.5);
-            letter-spacing: 0.15em;
-            margin-bottom: 20px;
-            font-family: 'Cormorant Garamond', serif;
-            font-style: italic;
-        }
+    /* Typing bubbles */
+    .typing-bubble {
+      background: var(--bg-item);
+      padding: 10px 14px; border-radius: 18px;
+      border-bottom-left-radius: 5px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .typing-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-lo);
+      animation: typingPulse 1.2s ease-in-out infinite;
+    }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typingPulse {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30%            { transform: translateY(-4px); opacity: 1; }
+    }
 
-        /* ─── Heart Button ─── */
-        .btn-area {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-        }
+    /* ── Input area ── */
+    #chat-input-area {
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border);
+      padding: 10px 12px 28px;
+      display: flex; align-items: flex-end; gap: 8px;
+      flex-shrink: 0;
+    }
+    .input-side-btn {
+      width: 35px; height: 35px; min-width: 35px; border-radius: 50%;
+      border: none; background: rgba(255,255,255,0.07);
+      color: var(--text-mid); font-size: 17px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+      -webkit-user-select: none; user-select: none;
+    }
+    .input-side-btn:active { background: rgba(255,255,255,0.14); }
+    #burn-btn.burn-on { background: rgba(255,159,10,0.15); color: var(--warn); }
 
-        .heart-btn-wrap {
-            position: relative;
-            display: inline-block;
-        }
+    #msg-input {
+      flex: 1; min-height: 35px; max-height: 100px;
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      border-radius: 18px; padding: 8px 14px;
+      color: var(--text-hi); font-size: 15px;
+      resize: none; outline: none;
+      overflow-y: auto; line-height: 1.4;
+      -webkit-user-select: text; user-select: text;
+    }
+    #msg-input::placeholder { color: var(--text-lo); }
+    #msg-input::-webkit-scrollbar { display: none; }
 
-        /* Orbiting dots */
-        .orbit-ring {
-            position: absolute;
-            inset: -20px;
-            border-radius: 50%;
-            animation: orbitSpin 5s linear infinite;
-            pointer-events: none;
-        }
-        @keyframes orbitSpin {
-            0%   { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .orbit-dot {
-            position: absolute;
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: var(--gold);
-            top: 50%;
-            left: 50%;
-            transform-origin: 0 0;
-            animation: orbitDotPulse 2s ease-in-out infinite;
-        }
-        .orbit-dot:nth-child(1) { transform: rotate(0deg)   translateX(55px) translateY(-50%); }
-        .orbit-dot:nth-child(2) { transform: rotate(120deg) translateX(55px) translateY(-50%); animation-delay: 0.66s; }
-        .orbit-dot:nth-child(3) { transform: rotate(240deg) translateX(55px) translateY(-50%); animation-delay: 1.33s; }
-        @keyframes orbitDotPulse {
-            0%, 100% { opacity: 0.4; transform-origin: 0 0; }
-            50%       { opacity: 1.0; }
-        }
+    #send-btn {
+      width: 35px; height: 35px; min-width: 35px; border-radius: 50%;
+      border: none;
+      background: var(--accent-gr);
+      color: #fff; font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.1s, opacity 0.1s;
+    }
+    #send-btn:active { transform: scale(0.9); }
 
-        .heart-button {
-            position: relative;
-            width: 90px;
-            height: 90px;
-            border-radius: 50%;
-            border: none;
-            cursor: pointer;
-            background: linear-gradient(135deg, #ff6090, #c2185b, #880e4f);
-            box-shadow:
-                0 0 0 0 rgba(194,24,91,0.7),
-                0 8px 30px rgba(194,24,91,0.5),
-                inset 0 1px 0 rgba(255,255,255,0.2);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 2px;
-            font-family: 'Iskoola Pota', sans-serif;
-            transition: transform 0.15s, box-shadow 0.3s;
-            animation: heartPulse 2.2s ease-in-out infinite;
-            z-index: 1;
-        }
-        @keyframes heartPulse {
-            0%   { box-shadow: 0 0 0 0 rgba(194,24,91,0.7), 0 8px 30px rgba(194,24,91,0.5), inset 0 1px 0 rgba(255,255,255,0.2); }
-            50%  { box-shadow: 0 0 0 14px rgba(194,24,91,0), 0 12px 40px rgba(194,24,91,0.65), inset 0 1px 0 rgba(255,255,255,0.2); }
-            100% { box-shadow: 0 0 0 0 rgba(194,24,91,0), 0 8px 30px rgba(194,24,91,0.5), inset 0 1px 0 rgba(255,255,255,0.2); }
-        }
-        .heart-button:active {
-            transform: scale(0.88);
-        }
+    #media-file-input { display: none; }
 
-        .btn-emoji { font-size: 28px; line-height: 1; }
-        .btn-label {
-            font-size: 12px;
-            color: rgba(255,255,255,0.9);
-            letter-spacing: 0.05em;
-            line-height: 1;
-        }
+    /* ================================================================
+       NUKE MODAL
+    ================================================================ */
+    #nuke-modal {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(8px);
+      display: none; align-items: flex-end; justify-content: center;
+      z-index: 9999; padding-bottom: 20px;
+    }
+    #nuke-modal.open { display: flex; }
+    .nuke-sheet {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 22px; padding: 24px 20px;
+      width: calc(100% - 28px); max-width: 420px;
+      animation: sheetUp 0.3s cubic-bezier(.16,1,.3,1) both;
+    }
+    .nuke-icon { font-size: 44px; text-align: center; display: block; margin-bottom: 10px; }
+    .nuke-title { font-size: 20px; font-weight: 700; text-align: center; color: var(--danger); }
+    .nuke-desc  { font-size: 13px; color: var(--text-mid); text-align: center; margin: 8px 0 20px; line-height: 1.55; }
+    .nuke-actions { display: flex; gap: 10px; }
+    .nuke-cancel  {
+      flex: 1; padding: 13px; border-radius: 12px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--text-hi); font-size: 15px; font-weight: 500;
+      cursor: pointer;
+    }
+    .nuke-confirm {
+      flex: 1.2; padding: 13px; border-radius: 12px;
+      border: none; background: var(--danger);
+      color: #fff; font-size: 15px; font-weight: 700;
+      cursor: pointer;
+    }
 
-        /* ─── Floating hearts layer ─── */
-        #heartsContainer {
-            position: fixed;
-            inset: 0;
-            z-index: 4;
-            pointer-events: none;
-            overflow: hidden;
-        }
-
-        .f-heart {
-            position: absolute;
-            bottom: -60px;
-            opacity: 0;
-            animation: floatUp linear forwards;
-            filter: drop-shadow(0 0 4px rgba(244,143,177,0.8));
-        }
-        @keyframes floatUp {
-            0%   { transform: translateY(0)      rotate(-20deg) scale(0.6); opacity: 0; }
-            15%  { opacity: 0.9; }
-            80%  { opacity: 0.6; }
-            100% { transform: translateY(-105vh) rotate(40deg)  scale(1.3); opacity: 0; }
-        }
-
-        /* ─── Final message ─── */
-        .final-msg {
-            color: var(--gold);
-            font-size: 17px;
-            line-height: 2;
-            text-shadow: 0 0 20px rgba(255,215,0,0.5);
-            animation: finalGlow 2s ease-in-out infinite;
-        }
-        @keyframes finalGlow {
-            0%, 100% { text-shadow: 0 0 20px rgba(255,215,0,0.4); }
-            50%       { text-shadow: 0 0 40px rgba(255,215,0,0.9), 0 0 80px rgba(255,100,144,0.4); }
-        }
-
-        /* ─── Entry animation ─── */
-        .card-wrapper { animation: cardEntry 1.2s cubic-bezier(0.34,1.56,0.64,1) both; }
-        @keyframes cardEntry {
-            0%   { opacity: 0; transform: scale(0.6) translateY(40px); }
-            100% { opacity: 1; transform: scale(1)   translateY(0); }
-        }
-    </style>
+    /* ================================================================
+       ANIMATIONS
+    ================================================================ */
+    @keyframes slideUp    { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes sheetUp    { from { transform: translateY(80px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes msgPop     { from { transform: scale(0.92) translateY(4px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+    @keyframes fadeOut    { to { opacity: 0; transform: scale(0.9); } }
+  </style>
 </head>
 <body>
 
-<div class="bg-canvas"></div>
-<div class="grain"></div>
-<canvas id="petalCanvas"></canvas>
-<div class="sparkle-layer" id="sparkleLayer"></div>
-<div id="heartsContainer"></div>
+<div class="view active" id="calc-view">
+  <div id="calc-display">
+    <div id="calc-history"></div>
+    <div id="calc-result">0</div>
+  </div>
 
-<div class="card-wrapper">
-    <div class="card-glow"></div>
-    <div class="card">
-        <span class="corner-tl">✦</span>
+  <div class="calc-sci-row">
+    <button class="cb cb-sci" data-a="fn" data-v="sin">sin</button>
+    <button class="cb cb-sci" data-a="fn" data-v="cos">cos</button>
+    <button class="cb cb-sci" data-a="fn" data-v="tan">tan</button>
+    <button class="cb cb-sci" data-a="fn" data-v="log">log</button>
+    <button class="cb cb-sci" data-a="fn" data-v="sqrt">√</button>
+    <button class="cb cb-sci" data-a="fn" data-v="pow2">x²</button>
+    <button class="cb cb-sci" data-a="fn" data-v="pi">π</button>
+    <button class="cb cb-sci" data-a="paren">()</button>
+  </div>
 
-        <div class="gif-ring">
-            <img id="displayGif"
-                 src="https://media.giphy.com/media/l4pTdcifPZLpDjL1e/giphy.gif"
-                 alt="Romantic Gif"
-                 onerror="this.src='https://em-content.zobj.net/source/animated-noto-color-emoji/356/beating-heart_1f493.gif'">
-        </div>
+  <div id="calc-main-grid">
+    <button class="cb cb-fn"  data-a="ac">AC</button>
+    <button class="cb cb-fn"  data-a="neg">+/−</button>
+    <button class="cb cb-fn"  data-a="pct">%</button>
+    <button class="cb cb-op"  data-a="op" data-v="÷">÷</button>
 
-        <div class="divider"><span>❤</span></div>
+    <button class="cb cb-num" data-a="d" data-v="7">7</button>
+    <button class="cb cb-num" data-a="d" data-v="8">8</button>
+    <button class="cb cb-num" data-a="d" data-v="9">9</button>
+    <button class="cb cb-op"  data-a="op" data-v="×">×</button>
 
-        <div class="message-box">
-            <p id="messageText" class="fade-in">
-                මගෙන් ඔයාට ලස්සන තෑග්ගක් තියෙනවා. බලන්න ආසද?
-            </p>
-        </div>
+    <button class="cb cb-num" data-a="d" data-v="4">4</button>
+    <button class="cb cb-num" data-a="d" data-v="5">5</button>
+    <button class="cb cb-num" data-a="d" data-v="6">6</button>
+    <button class="cb cb-op"  data-a="op" data-v="−">−</button>
 
-        <div class="counter" id="counter"></div>
+    <button class="cb cb-num" data-a="d" data-v="1">1</button>
+    <button class="cb cb-num" data-a="d" data-v="2">2</button>
+    <button class="cb cb-num" data-a="d" data-v="3">3</button>
+    <button class="cb cb-op"  data-a="op" data-v="+">+</button>
 
-        <div class="btn-area" id="btnArea">
-            <div class="heart-btn-wrap">
-                <div class="orbit-ring">
-                    <div class="orbit-dot"></div>
-                    <div class="orbit-dot"></div>
-                    <div class="orbit-dot"></div>
-                </div>
-                <button class="heart-button" id="nextBtn" onclick="showNextMessage()">
-                    <span class="btn-emoji">❤️</span>
-                    <span class="btn-label" id="btnText">ආසයි</span>
-                </button>
-            </div>
-        </div>
-
-    </div>
+    <button class="cb cb-num cb-zero" data-a="d" data-v="0">0</button>
+    <button class="cb cb-num" data-a="dot">.</button>
+    <button class="cb cb-eq"  data-a="eq">=</button>
+  </div>
 </div>
 
-<audio id="bgMusic" loop>
-    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
-</audio>
+<div class="view" id="decoy-view">
+  <div class="decoy-topbar"><h1>Notes</h1></div>
+  <div class="decoy-note"><div class="dn-head"><span class="dn-title">Shopping List</span><span class="dn-date">Today</span></div><div class="dn-body">Milk, bread, eggs, butter, coffee beans, orange juice…</div></div>
+  <div class="decoy-note"><div class="dn-head"><span class="dn-title">Meeting Notes — Q3</span><span class="dn-date">Yesterday</span></div><div class="dn-body">Discuss budget allocation for new projects. Follow up…</div></div>
+  <div class="decoy-note"><div class="dn-head"><span class="dn-title">Book Recommendations</span><span class="dn-date">Apr 3</span></div><div class="dn-body">Atomic Habits, Deep Work, The Psychology of Money…</div></div>
+  <div class="decoy-note"><div class="dn-head"><span class="dn-title">Workout Plan</span><span class="dn-date">Mar 29</span></div><div class="dn-body">Mon: Chest/Triceps · Wed: Back/Biceps · Fri: Legs…</div></div>
+  <div class="decoy-note"><div class="dn-head"><span class="dn-title">Recipe — Chicken Curry</span><span class="dn-date">Mar 22</span></div><div class="dn-body">2 chicken breasts, 1 can coconut milk, curry paste…</div></div>
+  <div class="decoy-count">5 Notes</div>
+  <div class="decoy-toolbar">
+    <span>Updated just now</span>
+    <button class="decoy-compose">✏️</button>
+  </div>
+</div>
+
+<div class="view" id="setup-view">
+  <div class="setup-wrap">
+    <div class="setup-header">
+      <div class="setup-icon">🔐</div>
+      <h2>Secure Channel</h2>
+      <p>Zero-footprint · End-to-end encrypted · P2P direct</p>
+    </div>
+
+    <div class="setup-section">
+      <div class="setup-row">
+        <label>Your Username</label>
+        <input type="text" id="su-name" placeholder="Display name for this session"
+               autocomplete="off" spellcheck="false" autocorrect="off">
+      </div>
+      <div class="setup-row">
+        <label>Room ID</label>
+        <input type="text" id="su-room" placeholder="Shared room identifier"
+               autocomplete="off" spellcheck="false" autocorrect="off">
+      </div>
+      <div class="setup-row">
+        <label>Shared Secret  (E2EE key derivation — never sent)</label>
+        <input type="password" id="su-secret" placeholder="Known only to both parties"
+               autocomplete="new-password">
+      </div>
+      <div class="setup-row">
+        <label>Your Role</label>
+        <div class="role-pills">
+          <button class="role-pill active" id="rp-init" onclick="pickRole('initiator')">⚡ Initiator</button>
+          <button class="role-pill"        id="rp-resp" onclick="pickRole('responder')">📡 Responder</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="setup-submit" onclick="startSession()">🔒 Establish Secure Channel</button>
+    <div class="setup-error" id="su-err"></div>
+
+    <div class="setup-security-note">
+      <span>🛡️ AES-GCM-256 · PBKDF2 key derivation · WebRTC P2P · No server storage · Volatile RAM only</span>
+    </div>
+  </div>
+</div>
+
+<div class="view" id="chat-view">
+  <div id="chat-header">
+    <div class="avatar-wrap">
+      <div class="peer-avatar" id="my-avatar">?</div>
+      <div class="online-dot" id="online-dot"></div>
+    </div>
+    <div class="peer-info">
+      <div class="peer-name"   id="room-label">Connecting…</div>
+      <div class="peer-status" id="peer-status">Waiting for peer…</div>
+    </div>
+    <div class="hdr-actions">
+      <div class="e2ee-badge">🔒 E2EE</div>
+      <button class="hdr-btn" id="nuke-btn" title="Nuke session" onclick="openNukeModal()">💥</button>
+    </div>
+  </div>
+
+  <div id="conn-banner">⚠️  Establishing P2P tunnel — messages will be sent once connected</div>
+
+  <div id="chat-messages"></div>
+
+  <div id="chat-input-area">
+    <button class="input-side-btn" title="Attach media" onclick="document.getElementById('media-file-input').click()">📎</button>
+    <input type="file" id="media-file-input" accept="image/*,video/*" onchange="onMediaSelected(event)">
+    <textarea id="msg-input" rows="1" placeholder="Message…"
+              oninput="onTyping()" onkeydown="onInputKey(event)"></textarea>
+    <button class="input-side-btn" id="burn-btn" title="Burn-on-read" onclick="toggleBurn()">🔥</button>
+    <button id="send-btn" onclick="sendMessage()">➤</button>
+  </div>
+</div>
+
+<div id="nuke-modal">
+  <div class="nuke-sheet">
+    <span class="nuke-icon">💥</span>
+    <div class="nuke-title">NUKE SESSION</div>
+    <div class="nuke-desc">
+      This will send a wipe command to your peer, permanently delete
+      the entire Firebase room node, destroy all messages in memory,
+      and return to the calculator. <strong>This cannot be undone.</strong>
+    </div>
+    <div class="nuke-actions">
+      <button class="nuke-cancel"  onclick="closeNukeModal()">Cancel</button>
+      <button class="nuke-confirm" onclick="executeNuke()">DESTROY</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
 
 <script>
-/* ═══════════════════════════════════════════
-   DATA
-═══════════════════════════════════════════ */
-const messages = [
-    "මගේ මැණික් කැටේ, අපි කොච්චර දුරින් හිටියත් මගේ හිත හැමවෙලේම තියෙන්නේ ඔයා ළඟ. වෙලාවට කෑම ටික කාලා පරිස්සමෙන් ඉන්න ඕනි.",
-    "ගොඩක් රෑ වෙනකල් ඉන්නේ නැතුව නිදාගන්න ඕනි. මගේ මැණික් කැටේගේ ඇස් දෙක පරිස්සම් කරගන්න එක මට ගොඩක් වටිනවා.",
-    "මොන තරම් වැඩ තිබුණත් හිතේ සතුටින් ඉන්න උත්සාහ කරන්න. ඔයාගේ මානසික නිදහස තමයි මට හැමදේටම වඩා වටින්නේ.",
-    "එළියට යද්දි වටපිට බලලා ගොඩක් පරිස්සමෙන් යන්න. මම ළඟ නැති අඩුව ඔයාට දැනෙන්න නොදී පරිස්සම් වෙන්න.",
-    "මේ දවස්වල වතුර බොන්න අමතක කරන්න එපා. මගේ මැණික් කැටේගේ සෞඛ්‍යය ගැන මම මෙහේ ඉඳන් ගොඩක් වද වෙනවා කියලා මතක තියාගන්න.",
-    "කවුරු මොනවා කිව්වත් ඉක්මනට හිත රිදවගන්න එපා. ඔයාගේ හිනාවෙන මූණ දකින්නයි මම හැමදාම ආස.",
-    "මහන්සි දැනෙනවා නම් වැඩ ටිකක් පැත්තකින් තියලා විවේක ගන්න. මගේ මැණික් කැටේ සනීපෙන් ඉන්න එකයි මට වැදගත්.",
-    "උදේට නැගිට්ට ගමන් ලස්සන හිනාවකින් දවස පටන් ගන්න. ඒ හිනාව මගේ දවසත් ලස්සන කරනවා.",
-    "හීතල දවස්වලට හොඳට උණුසුම් වෙලා ඉන්න. අසනීප හදාගත්තොත් මට මෙහේ ඉඳන් බලාගන්න බැරි වෙනවනෙ මගේ මැණික් කැටේ.",
-    "ප්‍රශ්නයක් ආවම තනියම දුක් වෙන්න එපා. මම දුර හිටියත් මගේ මැණික් කැටේට ඇහුම්කන් දෙන්න හැමවෙලේම සූදානම්.",
-    "කෑම කන එක මඟහරින්න එපා. ඔයා කෙට්ටු වෙනවට මම කොහොමත්ම කැමති නෑ මගේ මැණික් කැටේ.",
-    "පාරේ පයින් යද්දි කල්පනාවෙන් යන්න. මගේ මැණික් කැටේට පොඩි තුවාලයක්වත් වෙනවට මම කැමති නෑ.",
-    "නිතරම අනිත් අය ගැන හිතනවා වගේම ඔයා ගැනත් හිතන්න පුරුදු වෙන්න. ඔයා ඔයාටම ආදරේ කරන්න ඕනි.",
-    "හවස වැස්සට තෙමෙන්න එහෙම එපා. හෙම්බිරිස්සාව හැදුනොත් මට තමා ගොඩක්ම දුක හිතෙන්නේ.",
-    "තරහ ගියාම ඉක්මනට නිවෙන්න පුරුදු වෙන්න. මගේ ආදරේ හැමදාම මගේ මැණික් කැටේගේ හිත නිවන්න තියෙනවා.",
-    "නිදාගන්න කලින් අද දවසේ වුණු හොඳ දේවල් ගැන විතරක් හිතන්න. සුන්දර හීන දකින්න මගේ මැණික් කැටේ.",
-    "ඔයාගේ ලස්සන හීන වලට යන්න මහන්සි වෙන්න, හැබැයි ඒ ගමන් සෞඛ්‍යය ගැනත් හිතන්න අමතක කරන්න එපා.",
-    "මම කතා කරන්න පරක්කු වුණොත් වැරදියට හිතන්න එපා. කොහේ හිටියත් මගේ හිත තියෙන්නේ මගේ මැණික් කැටේ ළඟ.",
-    "අමාරු දේවල් තියෙනවා නම් මට කියන්න. අපි දෙන්නා එකතු වෙලා ඒ දේවල් විසඳගමු.",
-    "නිතරම වැඩවලටම වෙලාව වෙන් කරන්නෙත් නැතුව පොතක් පතක් කියවලා හිත නිදහස් කරගන්නත් වෙලාවක් වෙන් කරගන්න.",
-    "කවුරුහරි ඔයාගේ හිත රිද්දුවොත් ඒක ගැනම හිත හිත ලතවෙන්න එපා. මම මගේ මැණික් කැටේට හැමදාම ආදරෙයි.",
-    "කෑම හදද්දි පරිස්සමෙන්. ආයේ කොහෙවත් පුච්චගෙන එහෙම තිබ්බොත් මගෙන් හොඳවයින් අහගන්නවා.",
-    "පැයකට සැරයක්වත් ලස්සනට හිනාවෙන්න. ඒ හිනාව තමයි මගේ ජීවිතේට තියෙන ලොකුම සැනසීම.",
-    "කාත් එක්කවත් රණ්ඩු වෙන්න යන්න එපා. මගේ මැණික් කැටේ පාඩුවේ ඉන්න ඕනි හොඳද.",
-    "ඔයාට බෑ කියලා හිතෙන වෙලාවට මාව මතක් කරගන්න. මගේ ආදරේ මගේ මැණික් කැටේට ලොකු හයියක් වේවි.",
-    "හවසට ටිකක් එළියට බැහැලා නිදහස් හුළඟක් විඳින්න. මුළු දවසම ගෙදර වැඩවලටම මහන්සි වෙන්න එපා",
-    "පොඩ්ඩෝ දෙන්නත් එක්කත් සතුටින් කාලය ගත කරන්න. මම ළඟ නැති අඩුව එයාලා පුරවාවි.",
-    "මට මගේ මැණික් කැටේව ගොඩක් විශ්වාසයි. ඒ විශ්වාසය හැමදාම ඒ විදිහටම තියෙයි කියලා මම දන්නවා.",
-    "අනාගතේ ගැන බය වෙන්න එපා. මම කොහොමහරි ඔයාගේ ලස්සන ලෝකේ ඔයාට ගොඩනගලා දෙනවමයි.",
-    "අසනීපයක් වුණ ගමන් බෙහෙත් ගන්න යන්න. පස්සට දාන්න එපා කිසිම දෙයක්.",
-    "උදේට කෑම නොකා ඉඳලා ගැස්ට්‍රයිටිස් හදාගන්නවා එහෙම නෙවෙයි. මට එහෙම වුණොත්නම් ගොඩක් තරහ යනවා.",
-    "මොන දේ වුණත් ඔයාගේ ඉලක්ක අතහරින්න එපා. මම හැමදාම මගේ මැණික් කැටේගේ පස්සෙන් ඉඳන් හයියක් වෙනවා.",
-    "අඬන්න ඕනි වුණාම අඬන්න, හැබැයි කඳුළු පිහදාගෙන ආයෙත් හිනාවෙලා නැගිටින්න ඕනි මගේ මැණික් කැටේ.",
-    "තනියම කොහේ හරි යද්දි මට කියල යන්න. එතකොට මගේ හිතට බයක් නෑ.",
-    "ඔයාගේ ලස්සන කොණ්ඩේ පරිස්සම් කරගන්න. මම ආසයි ඒක දිහා බලන් ඉන්න.",
-    "පොඩ්ඩෝ දෙන්නා එක්ක ආදරෙන් ඉන්න. එයාලා තමයි ඉන්න වටිනාම සම්පත.",
-    "මගේ අඩුපාඩු තියෙනවා නම් මට කෙලින්ම කියන්න. අපි දෙන්නා කතා කරලා ඒවා හදාගමු.",
-    "මගේ මැණික් කැටේගේ සතුට වෙනුවෙන් මම ඕනෑම දෙයක් කරන්න ලෑස්තියි. ඒ නිසා හැමදාම සතුටින් ඉන්න.",
-    "නිදිමතනම් අනිවාර්යයෙන් නිදාගන්න. නිදි මරලා ලෙඩ වෙන්නනම් එපා.",
-    "ඔයාට කවුරු නැතත් මම හැමදාම ඉන්නවා කියන එක හිතේ තියාගන්න.",
-    "පාරේ යන අහිංසක සතෙකුට කන්න ටිකක් දෙන්න. ඔයාගේ ඒ කරුණාවන්ත හිතට මම ගොඩක් ආදරෙයි.",
-    "දවසම මහන්සි වෙලා ආවම උණු වතුර ටිකක් නාගන්න. එතකොට ඔයාගේ ඇඟට ලොකු සහනයක් දැනේවි.",
-    "කිසිම දේකට ඉක්මන් තීරණ ගන්න එපා. හොඳට හිතලා බලලා වැඩ කරන්න පුරුදු වෙන්න.",
-    "මගේ ජීවිතේට ලැබුණු ලොකුම වාසනාව මගේ මැණික් කැටේ. ඒ වාසනාව මම පණ වගේ රකිනවා.",
-    "ඔයාගේ දුර්වලකම් ගැන හිතලා පසුතැවෙන්න එපා. අපි හැමෝම අතින් වැරදි වෙනවා.",
-    "මම දෙන උපදෙස් වලට සමහර වෙලාවට ඔයාට කේන්ති යයි. ඒත් ඒ ඔක්කොම කරන්නේ ඔයාට තියෙන ආදරේ නිසයි.",
-    "හැමදාම අලුත් දෙයක් ඉගෙන ගන්න උත්සාහ කරන්න. මගේ මැණික් කැටේගේ දියුණුව දකින්න මම ගොඩක් ආසයි.",
-    "දුරින් හිටියත් අපේ හිත් දෙක එකට බැඳිලා තියෙන්නේ. ඒ බැඳීම කවදාවත් ලිහෙන්නේ නෑ.",
-    "ඔයා ලස්සනට ඔයාගේ ජීවන ගමන යන්න. මම ගොඩක් ආසාවෙන් ඔයා දිහා බලාගෙන ඉන්නවා.",
-    "මගේ ආදරණීය මැණික් කැටේ, ඔයා පරිස්සමින් ඉන්න ඕනි. ඔයාගේ ලස්සන අනාගතය වෙනුවෙන් අපි දෙන්නම ශක්තිමත්ව ඉමු.!"
-];
+/* ====================================================================
+   ZERO-FOOTPRINT STEALTH COMMUNICATION SYSTEM  —  Core Script
+   ====================================================================
+   ARCHITECTURE OVERVIEW
+   ─────────────────────
+   1. Calculator UI is always shown on load (disguise layer).
+   2. Typing SECRET_SEQ then = unlocks the Setup screen.
+   3. Typing DECOY_SEQ  then = shows a fake Notes app.
+   4. Setup derives an AES-GCM-256 key (PBKDF2, 310 000 iterations).
+   5. Firebase Realtime DB is used ONLY for WebRTC signaling and
+      presence — the actual message payload never touches Firebase.
+   6. SimplePeer establishes a direct P2P data channel; every message
+      is encrypted client-side before entering the channel.
+   7. All state lives in JS heap (RAM). No localStorage, no cookies,
+      no IndexedDB. Storage APIs are overridden to throw on access.
+   8. Panic triggers (device shake / face-down) redirect to Google and
+      wipe RAM. A Nuke button deletes the entire Firebase room for both
+      parties and returns to calculator.
+   ==================================================================== */
 
-const gifs = [
-    "https://media.giphy.com/media/l4pTdcifPZLpDjL1e/giphy.gif",
-    "https://media.giphy.com/media/xT0xeQ9HQO8X23VbB6/giphy.gif",
-    "https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif",
-    "https://media.giphy.com/media/3o7TKoWXm3okO1kgHC/giphy.gif"
-];
+  /* ──────────────────────────────────────────────────────────────────
+     §1  FIREBASE CONFIGURATION
+  ────────────────────────────────────────────────────────────────── */
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAlKkVQwMMNbvfG0fuCZu-lpnmmCiAiv14",
+    authDomain: "calculator-bb4c4.firebaseapp.com",
+    databaseURL: "https://calculator-bb4c4-default-rtdb.firebaseio.com",
+    projectId: "calculator-bb4c4",
+    storageBucket: "calculator-bb4c4.firebasestorage.app",
+    messagingSenderId: "1020002538081",
+    appId: "1:1020002538081:web:c2400a2eb58f7e877d1020"
+  };
 
-const heartEmojis = ['❤️','💕','💖','💗','💓','🌹','✨','💝'];
+  /* ──────────────────────────────────────────────────────────────────
+     §2  SECRET & DECOY SEQUENCES
+     These are matched against the calculator expression string at the
+     moment the user presses "=". Change them to your preferred codes.
+  ────────────────────────────────────────────────────────────────── */
+  const SECRET_SEQ = '1998+2904'; // triggers hidden chat setup
+  const DECOY_SEQ  = '1111';      // triggers fake Notes app
 
-/* ═══════════════════════════════════════════
-   STATE
-═══════════════════════════════════════════ */
-let currentIndex = -1;
-let musicStarted = false;
-let heartsInterval = null;
-let sparkInterval = null;
+  /* ──────────────────────────────────────────────────────────────────
+     §3  VOLATILE APPLICATION STATE  (RAM-only — never persisted)
+     Every variable below is cleared on wipe / page close.
+  ────────────────────────────────────────────────────────────────── */
+  let S = {
+    // Session
+    sid:        null,   // Random UUID — generated fresh each session
+    username:   null,
+    roomId:     null,
+    role:       'initiator', // 'initiator' | 'responder'
 
-/* ═══════════════════════════════════════════
-   ROSE PETAL CANVAS
-═══════════════════════════════════════════ */
-(function initPetals() {
-    const canvas = document.getElementById('petalCanvas');
-    const ctx    = canvas.getContext('2d');
-    let W, H, petals = [];
+    // Cryptography
+    key:        null,   // CryptoKey object — AES-GCM-256, extractable: false
 
-    function resize() {
-        W = canvas.width  = window.innerWidth;
-        H = canvas.height = window.innerHeight;
+    // Firebase
+    fbApp:      null,
+    db:         null,
+    roomRef:    null,
+    presRef:    null,   // /presence/{sid}
+    typRef:     null,   // /typing/{sid}
+    fbListeners: [],    // [{ref, evt, fn}] — cleaned up on wipe
+
+    // WebRTC
+    peer:       null,   // SimplePeer instance
+    p2pOpen:    false,
+    msgQueue:   [],     // Messages queued before P2P is ready
+
+    // UI
+    burnMode:   false,
+    peerOnline: false,
+    peerTyping: false,
+    typTimer:   null,
+    typBubbleEl: null,
+
+    // Messages — held in RAM only
+    messages:   [],
+
+    // Panic detection
+    shakeCount:    0,
+    shakeLastTs:   0,
+  };
+
+  /* ──────────────────────────────────────────────────────────────────
+     §4  ANTI-FORENSICS — Block all browser persistence APIs
+     Override localStorage / sessionStorage / document.cookie so any
+     accidental call fails silently rather than persisting data.
+  ────────────────────────────────────────────────────────────────── */
+  (function blockPersistence() {
+    try {
+      Object.defineProperty(window, 'localStorage',
+        { get: () => { throw new Error('[SECURITY] localStorage is disabled'); } });
+      Object.defineProperty(window, 'sessionStorage',
+        { get: () => { throw new Error('[SECURITY] sessionStorage is disabled'); } });
+    } catch (_) { /* already defined or strict-mode restriction */ }
+
+    // Block cookies
+    try {
+      Object.defineProperty(document, 'cookie', {
+        get: () => '',
+        set: () => { console.warn('[SECURITY] Cookie write blocked.'); },
+        configurable: false,
+      });
+    } catch (_) {}
+  })();
+
+  /* ──────────────────────────────────────────────────────────────────
+     §5  PANIC SWITCH
+     (a) Vigorous shake  → 3 spikes above threshold within 600 ms
+     (b) Face-down tilt  → beta > 150° (device flipped)
+     Both trigger panicEscape() which wipes state and redirects.
+  ────────────────────────────────────────────────────────────────── */
+  const SHAKE_THRESHOLD = 28; // m/s²  — adjust for sensitivity
+
+  function panicEscape() {
+    wipeAll();
+    window.location.replace('https://www.google.com');
+  }
+
+  window.addEventListener('devicemotion', (e) => {
+    const a = e.accelerationIncludingGravity;
+    if (!a) return;
+    const mag = Math.sqrt(a.x ** 2 + a.y ** 2 + a.z ** 2);
+    const now = Date.now();
+    if (mag > SHAKE_THRESHOLD) {
+      if (now - S.shakeLastTs < 600) {
+        S.shakeCount++;
+        if (S.shakeCount >= 3) panicEscape();
+      } else {
+        S.shakeCount = 1;
+      }
+      S.shakeLastTs = now;
     }
-    resize();
-    window.addEventListener('resize', resize);
+  }, { passive: true });
 
-    function Petal() {
-        this.reset();
+  window.addEventListener('deviceorientation', (e) => {
+    if (e.beta !== null && Math.abs(e.beta) > 150) panicEscape();
+  }, { passive: true });
+
+  // Wipe presence on hide/close
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && S.presRef) {
+      S.presRef.set(false).catch(() => {});
     }
-    Petal.prototype.reset = function() {
-        this.x    = Math.random() * W;
-        this.y    = -30;
-        this.r    = Math.random() * 8 + 5;
-        this.vx   = (Math.random() - 0.5) * 1.2;
-        this.vy   = Math.random() * 1.5 + 0.6;
-        this.angle= Math.random() * Math.PI * 2;
-        this.va   = (Math.random() - 0.5) * 0.04;
-        this.alpha= Math.random() * 0.5 + 0.3;
-        this.hue  = Math.random() * 40 + 320; // pink-red range
+  });
+  window.addEventListener('beforeunload', wipeAll);
+
+  /* ──────────────────────────────────────────────────────────────────
+     §6  FULL MEMORY WIPE
+     Destroys all active connections, removes Firebase listeners,
+     zeros out references, and clears the chat DOM.
+  ────────────────────────────────────────────────────────────────── */
+  function wipeAll() {
+    // Destroy WebRTC peer
+    if (S.peer) { try { S.peer.destroy(); } catch (_) {} S.peer = null; }
+
+    // Remove all Firebase listeners
+    S.fbListeners.forEach(({ ref, evt, fn }) => {
+      try { ref.off(evt, fn); } catch (_) {}
+    });
+
+    // Mark offline
+    if (S.presRef) { try { S.presRef.set(false); } catch (_) {} }
+    if (S.typRef)  { try { S.typRef.set(false);  } catch (_) {} }
+
+    // Clear typing timer
+    if (S.typTimer) clearTimeout(S.typTimer);
+
+    // Wipe DOM
+    const chatEl = document.getElementById('chat-messages');
+    if (chatEl) chatEl.innerHTML = '';
+
+    // Zero all state
+    S = {
+      sid: null, username: null, roomId: null, role: 'initiator',
+      key: null, fbApp: null, db: null, roomRef: null,
+      presRef: null, typRef: null, fbListeners: [],
+      peer: null, p2pOpen: false, msgQueue: [],
+      burnMode: false, peerOnline: false, peerTyping: false,
+      typTimer: null, typBubbleEl: null, messages: [],
+      shakeCount: 0, shakeLastTs: 0,
     };
-    Petal.prototype.draw = function() {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
-        ctx.globalAlpha = this.alpha;
-        ctx.beginPath();
-        // leaf shape
-        ctx.moveTo(0, 0);
-        ctx.bezierCurveTo( this.r, -this.r,  this.r * 2,  this.r,     0,  this.r * 2.2);
-        ctx.bezierCurveTo(-this.r * 2,  this.r, -this.r, -this.r,     0,  0);
-        ctx.fillStyle = `hsl(${this.hue}, 80%, 72%)`;
-        ctx.fill();
-        ctx.restore();
-    };
-    Petal.prototype.update = function() {
-        this.x     += this.vx;
-        this.y     += this.vy;
-        this.angle += this.va;
-        if (this.y > H + 30) this.reset();
-    };
+  }
 
-    // seed initial petals
-    for (let i = 0; i < 22; i++) {
-        const p = new Petal();
-        p.y = Math.random() * H; // spread on load
-        petals.push(p);
+  /* ──────────────────────────────────────────────────────────────────
+     §7  CRYPTOGRAPHY  — AES-GCM-256 via Web Crypto API
+  ────────────────────────────────────────────────────────────────── */
+
+  /**
+   * deriveKey(secret, roomId)
+   * Uses PBKDF2-HMAC-SHA256 with 310 000 iterations (OWASP 2023 minimum)
+   * to derive a 256-bit AES-GCM key. The key is marked extractable:false
+   * so the browser cannot export the raw bytes even via JS.
+   * The salt incorporates the roomId so the same secret in different
+   * rooms produces independent keys.
+   */
+  async function deriveKey(secret, roomId) {
+    const enc  = new TextEncoder();
+    const base = await crypto.subtle.importKey(
+      'raw', enc.encode(secret),
+      { name: 'PBKDF2' },
+      false, ['deriveKey']
+    );
+    return crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: enc.encode('ZFSalt_v1_' + roomId),
+        iterations: 310000,
+        hash: 'SHA-256',
+      },
+      base,
+      { name: 'AES-GCM', length: 256 },
+      false,           // NOT extractable → key bytes inaccessible
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  /**
+   * encrypt(plaintext) → Base64 string of [12-byte IV ‖ ciphertext]
+   * A fresh random IV is generated for every encryption operation.
+   */
+  async function encrypt(plaintext) {
+    if (!S.key) throw new Error('No key');
+    const iv  = crypto.getRandomValues(new Uint8Array(12));
+    const enc = new TextEncoder();
+    const ct  = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, S.key, enc.encode(plaintext));
+    const buf = new Uint8Array(12 + ct.byteLength);
+    buf.set(iv, 0);
+    buf.set(new Uint8Array(ct), 12);
+    return btoa(String.fromCharCode(...buf));
+  }
+
+  /**
+   * decrypt(b64) → plaintext string
+   */
+  async function decrypt(b64) {
+    if (!S.key) throw new Error('No key');
+    const buf = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const iv  = buf.slice(0, 12);
+    const ct  = buf.slice(12);
+    const pt  = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, S.key, ct);
+    return new TextDecoder().decode(pt);
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     §8  VIEW MANAGEMENT
+  ────────────────────────────────────────────────────────────────── */
+  function showView(id) {
+    document.querySelectorAll('.view').forEach(v => {
+      v.classList.remove('active');
+      v.style.opacity = '0';
+    });
+    const el = document.getElementById(id);
+    el.classList.add('active');
+    // Trigger reflow for animation
+    requestAnimationFrame(() => { el.style.opacity = '1'; });
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     §9  SCIENTIFIC CALCULATOR ENGINE
+  ────────────────────────────────────────────────────────────────── */
+  let C = {
+    expr:     '',       // Running expression string
+    display:  '0',      // Result display
+    freshRes: false,    // True immediately after '=' press
+    parens:   0,        // Count of unclosed '('
+    lastOp:   null,     // Last operator pressed (for active highlight)
+  };
+
+  function calcRender() {
+    document.getElementById('calc-history').textContent = C.expr;
+    document.getElementById('calc-result').textContent  = C.display;
+    // Highlight active operator button
+    document.querySelectorAll('.cb-op').forEach(b => b.classList.remove('active-op'));
+    if (C.lastOp) {
+      document.querySelectorAll('.cb-op').forEach(b => {
+        if (b.dataset.v === C.lastOp) b.classList.add('active-op');
+      });
     }
+    // Shrink font for long results
+    const el  = document.getElementById('calc-result');
+    const len = C.display.length;
+    el.style.fontSize = len > 12 ? '38px' : len > 9 ? '50px' : '62px';
+  }
 
-    function loop() {
-        ctx.clearRect(0, 0, W, H);
-        petals.forEach(p => { p.update(); p.draw(); });
-        requestAnimationFrame(loop);
-    }
-    loop();
-})();
+  // Safe math evaluator — only button-generated expressions enter here
+  function safeEval(expr) {
+    const e = expr
+      .replace(/×/g, '*')
+      .replace(/÷/g, '/')
+      .replace(/−/g, '-')
+      .replace(/π/g, 'Math.PI');
+    // Function constructor is safe here because expr is entirely from
+    // controlled button inputs (no user-typed text accepted)
+    const result = Function('"use strict"; return (' + e + ')')();
+    if (!isFinite(result) || isNaN(result)) throw new Error('Math error');
+    return result;
+  }
 
-/* ═══════════════════════════════════════════
-   GOLD SPARKLES
-═══════════════════════════════════════════ */
-function createSparkle() {
-    const layer = document.getElementById('sparkleLayer');
-    const s = document.createElement('div');
-    s.className = 'spark';
-    s.style.left   = Math.random() * 100 + 'vw';
-    s.style.top    = Math.random() * 100 + 'vh';
-    const dur  = Math.random() * 2000 + 1500;
-    const size = Math.random() * 5 + 2;
-    s.style.width  = size + 'px';
-    s.style.height = size + 'px';
-    s.style.animationDuration = dur + 'ms';
-    s.style.animationDelay   = '0ms';
-    layer.appendChild(s);
-    setTimeout(() => s.remove(), dur + 100);
-}
+  function calcBtn(action, val) {
+    switch (action) {
 
-/* ═══════════════════════════════════════════
-   FLOATING HEARTS
-═══════════════════════════════════════════ */
-function createHeart() {
-    const container = document.getElementById('heartsContainer');
-    const h = document.createElement('div');
-    h.classList.add('f-heart');
-    h.textContent = heartEmojis[Math.floor(Math.random() * heartEmojis.length)];
-    h.style.left   = Math.random() * 100 + 'vw';
-    const dur = Math.random() * 5000 + 6000;
-    h.style.animationDuration = dur + 'ms';
-    h.style.fontSize = (Math.random() * 16 + 12) + 'px';
-    container.appendChild(h);
-    setTimeout(() => h.remove(), dur + 100);
-}
+      case 'd': // digit
+        if (C.freshRes) { C.expr = ''; C.freshRes = false; C.lastOp = null; }
+        C.expr    += val;
+        C.display  = C.expr;
+        break;
 
-/* ═══════════════════════════════════════════
-   CLICK BURST (heart explosion on click)
-═══════════════════════════════════════════ */
-document.addEventListener('click', function(e) {
-    for (let i = 0; i < 6; i++) {
-        const burst = document.createElement('div');
-        burst.textContent = heartEmojis[Math.floor(Math.random() * heartEmojis.length)];
-        burst.style.cssText = `
-            position: fixed;
-            left: ${e.clientX}px;
-            top: ${e.clientY}px;
-            font-size: ${Math.random() * 18 + 12}px;
-            pointer-events: none;
-            z-index: 999;
-            animation: burstFly 0.8s ease-out forwards;
-            --dx: ${(Math.random() - 0.5) * 120}px;
-            --dy: ${-(Math.random() * 80 + 40)}px;
-        `;
-        document.body.appendChild(burst);
-        setTimeout(() => burst.remove(), 900);
-    }
-});
+      case 'dot':
+        if (C.freshRes) { C.expr = '0'; C.freshRes = false; }
+        // Only add '.' if current number segment has none
+        const seg = C.expr.split(/[+\-×÷]/).pop();
+        if (!seg.includes('.')) C.expr += '.';
+        C.display = C.expr;
+        break;
 
-// inject burst keyframes
-const burstStyle = document.createElement('style');
-burstStyle.textContent = `@keyframes burstFly {
-    0%   { transform: translate(0,0) scale(1); opacity: 1; }
-    100% { transform: translate(var(--dx), var(--dy)) scale(0.3); opacity: 0; }
-}`;
-document.head.appendChild(burstStyle);
+      case 'op':
+        C.freshRes = false;
+        // Replace trailing operator if any
+        C.expr     = C.expr.replace(/[+\-×÷]$/, '') + val;
+        C.display  = C.expr;
+        C.lastOp   = val;
+        break;
 
-/* ═══════════════════════════════════════════
-   MAIN LOGIC
-═══════════════════════════════════════════ */
-function showNextMessage() {
-    // Start ambient effects on first click
-    if (!heartsInterval) {
-        heartsInterval  = setInterval(createHeart, 1400);
-        sparkInterval   = setInterval(createSparkle, 400);
-    }
+      case 'ac':
+        C = { expr: '', display: '0', freshRes: false, parens: 0, lastOp: null };
+        break;
 
-    // Music
-    if (!musicStarted) {
-        const audio = document.getElementById('bgMusic');
-        audio.volume = 0.35;
-        audio.play().catch(() => {});
-        musicStarted = true;
-    }
+      case 'neg':
+        try {
+          const v = safeEval(C.expr || '0');
+          C.expr    = String(-v);
+          C.display = C.expr;
+        } catch (_) {}
+        break;
 
-    currentIndex++;
+      case 'pct':
+        try {
+          const v  = safeEval(C.expr || '0');
+          C.expr    = String(v / 100);
+          C.display = C.expr;
+        } catch (_) {}
+        break;
 
-    const msgEl  = document.getElementById('messageText');
-    const gifEl  = document.getElementById('displayGif');
-    const counter= document.getElementById('counter');
-
-    // Fade out
-    msgEl.classList.remove('fade-in');
-    msgEl.classList.add('fade-out');
-    gifEl.style.opacity = '0';
-
-    setTimeout(() => {
-        if (currentIndex < messages.length) {
-            msgEl.textContent    = messages[currentIndex];
-            gifEl.src            = gifs[currentIndex % gifs.length];
-            document.getElementById('btnText').textContent = 'තව ...';
-            counter.textContent  = `${currentIndex + 1} / ${messages.length}`;
+      case 'fn':
+        if (C.freshRes) { C.freshRes = false; }
+        if (val === 'pi') {
+          C.expr   += 'π';
+          C.display = C.expr;
+        } else if (val === 'pow2') {
+          C.expr   += '**2';
+          C.display = C.expr;
         } else {
-            // Final message
-            msgEl.classList.add('final-msg');
-            msgEl.textContent = 'මම ඔයාට ගොඩක් ආදරෙයි මගේ මැණික් කැටේ! පරිස්සමින් ඉන්න! ❤️';
-            gifEl.src = 'https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif';
-            counter.textContent = '';
-            document.getElementById('nextBtn').style.display = 'none';
-
-            // Final burst of hearts
-            for (let i = 0; i < 15; i++) {
-                setTimeout(createHeart, i * 150);
-            }
+          const fnMap = { sin:'Math.sin', cos:'Math.cos', tan:'Math.tan',
+                          log:'Math.log10', sqrt:'Math.sqrt' };
+          C.expr   += fnMap[val] + '(';
+          C.parens++;
+          C.display = C.expr;
         }
+        break;
 
-        msgEl.classList.remove('fade-out');
-        msgEl.classList.add('fade-in');
-        gifEl.style.opacity = '1';
+      case 'paren':
+        if (C.parens > 0) { C.expr += ')'; C.parens--; }
+        else              { C.expr += '('; C.parens++; }
+        C.display = C.expr;
+        break;
 
-        // Extra hearts per click
-        createHeart(); createHeart(); createHeart();
+      case 'eq':
+        // ── Secret sequence check BEFORE evaluation ──
+        checkSecrets(C.expr);
+        try {
+          const res   = safeEval(C.expr || '0');
+          // Format: strip unnecessary trailing zeros after decimal
+          C.display   = String(parseFloat(res.toFixed(10)));
+          C.expr      = C.display;
+          C.freshRes  = true;
+          C.lastOp    = null;
+          C.parens    = 0;
+        } catch (_) {
+          C.display   = 'Error';
+          C.expr      = '';
+          C.freshRes  = true;
+        }
+        break;
+    }
+    calcRender();
+  }
 
-    }, 350);
-}
+  function checkSecrets(expr) {
+    const e = expr.trim();
+    if (e === SECRET_SEQ) {
+      setTimeout(() => showView('setup-view'), 280);
+    } else if (e === DECOY_SEQ) {
+      setTimeout(() => showView('decoy-view'), 280);
+    }
+  }
 
-// Idle sparkles from the start
-setInterval(createSparkle, 700);
+  // Bind all calculator buttons
+  document.querySelectorAll('.cb').forEach(btn => {
+    btn.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault(); // prevent focus shift on mobile
+      calcBtn(btn.dataset.a, btn.dataset.v || '');
+    });
+  });
+
+  /* ──────────────────────────────────────────────────────────────────
+     §10  SETUP  — session initialisation
+  ────────────────────────────────────────────────────────────────── */
+  let pickedRole = 'initiator';
+
+  function pickRole(r) {
+    pickedRole = r;
+    document.getElementById('rp-init').classList.toggle('active', r === 'initiator');
+    document.getElementById('rp-resp').classList.toggle('active', r === 'responder');
+  }
+
+  async function startSession() {
+    const name   = document.getElementById('su-name').value.trim();
+    const room   = document.getElementById('su-room').value.trim();
+    const secret = document.getElementById('su-secret').value;
+    const errEl  = document.getElementById('su-err');
+    errEl.textContent = '';
+
+    if (!name || !room || !secret) { errEl.textContent = 'All fields are required.'; return; }
+    if (secret.length < 8)         { errEl.textContent = 'Shared secret must be ≥ 8 characters.'; return; }
+
+    // Generate session ID (volatile — exists only for this session)
+    S.sid      = (typeof crypto.randomUUID === 'function')
+                   ? crypto.randomUUID()
+                   : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+    S.username = name;
+    S.roomId   = room;
+    S.role     = pickedRole;
+
+    // Derive AES-GCM-256 key from shared secret — NEVER stored
+    try {
+      S.key = await deriveKey(secret, room);
+    } catch (e) {
+      errEl.textContent = 'Key derivation failed: ' + e.message; return;
+    }
+
+    // Initialize Firebase (unique app name per session to allow re-init)
+    try {
+      S.fbApp = firebase.initializeApp(FIREBASE_CONFIG, 'app_' + S.sid);
+      S.db    = firebase.database(S.fbApp);
+    } catch (e) {
+      errEl.textContent = 'Firebase init failed: ' + e.message; return;
+    }
+
+    // Transition to chat view
+    document.getElementById('my-avatar').textContent  = name.charAt(0).toUpperCase();
+    document.getElementById('room-label').textContent = 'Room: ' + room;
+    showView('chat-view');
+
+    // Wire up Firebase presence/signaling then start WebRTC
+    setupFirebase();
+    initPeer();
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     §11  FIREBASE — presence, typing, signaling, nuke listener
+  ────────────────────────────────────────────────────────────────── */
+  function setupFirebase() {
+    const db  = S.db;
+    const rp  = 'rooms/' + S.roomId;
+    S.roomRef = db.ref(rp);
+
+    /* ── Self presence (onDisconnect ensures cleanup even on crash) ── */
+    S.presRef = db.ref(rp + '/presence/' + S.sid);
+    const connRef = db.ref('.info/connected');
+
+    function onConnChange(snap) {
+      if (snap.val() === true) {
+        S.presRef.onDisconnect().set(false);
+        S.presRef.set(true);
+      }
+    }
+    connRef.on('value', onConnChange);
+    S.fbListeners.push({ ref: connRef, evt: 'value', fn: onConnChange });
+
+    /* ── Peer presence ── */
+    const presRoomRef = db.ref(rp + '/presence');
+    function onPresChange(snap) {
+      const all = snap.val() || {};
+      S.peerOnline = Object.entries(all).some(([id, on]) => id !== S.sid && on === true);
+      renderStatus();
+    }
+    presRoomRef.on('value', onPresChange);
+    S.fbListeners.push({ ref: presRoomRef, evt: 'value', fn: onPresChange });
+
+    /* ── Typing indicator ── */
+    S.typRef = db.ref(rp + '/typing/' + S.sid);
+    const typRoomRef = db.ref(rp + '/typing');
+    function onTypChange(snap) {
+      const all = snap.val() || {};
+      S.peerTyping = Object.entries(all).some(([id, t]) => id !== S.sid && t === true);
+      renderStatus();
+      renderTypingBubble();
+    }
+    typRoomRef.on('value', onTypChange);
+    S.fbListeners.push({ ref: typRoomRef, evt: 'value', fn: onTypChange });
+
+    /* ── Nuke listener — fires when peer initiates nuke ── */
+    const nukeRef = db.ref(rp + '/nuke');
+    function onNuke(snap) {
+      if (snap.val() === true) {
+        addSys('🔴 Remote wipe signal received. Session terminated.');
+        localWipe();
+      }
+    }
+    nukeRef.on('value', onNuke);
+    S.fbListeners.push({ ref: nukeRef, evt: 'value', fn: onNuke });
+
+    /* ── WebRTC signaling channel ──
+       Signals are pushed as encrypted payloads addressed by role.
+       Each side only reads signals addressed to their role, then
+       immediately removes the Firebase node (ephemeral signaling). */
+    const sigRef = db.ref(rp + '/signals');
+    function onSignal(snap) {
+      if (!snap.exists()) return;
+      snap.forEach(child => {
+        const sig = child.val();
+        if (sig.to === S.role || sig.to === S.sid) {
+          // Decrypt and feed to SimplePeer, then delete from Firebase
+          decryptSignal(sig.data).then(sd => {
+            if (S.peer && !S.peer.destroyed) S.peer.signal(sd);
+          }).catch(console.error);
+          db.ref(rp + '/signals/' + child.key).remove();
+        }
+      });
+    }
+    sigRef.on('value', onSignal);
+    S.fbListeners.push({ ref: sigRef, evt: 'value', fn: onSignal });
+  }
+
+  async function pushSignal(data) {
+    // Encrypt the signal payload before writing to Firebase
+    const enc    = await encrypt(JSON.stringify(data));
+    const target = S.role === 'initiator' ? 'responder' : 'initiator';
+    await S.db.ref('rooms/' + S.roomId + '/signals').push({
+      from: S.sid,
+      to:   target,
+      data: enc,
+    });
+  }
+
+  async function decryptSignal(enc) {
+    const plain = await decrypt(enc);
+    return JSON.parse(plain);
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     §12  WebRTC  via SimplePeer
+  ────────────────────────────────────────────────────────────────── */
+  function initPeer() {
+    showBanner(true);
+
+    S.peer = new SimplePeer({
+      initiator: S.role === 'initiator',
+      trickle:   true,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+        ],
+      },
+    });
+
+    // SimplePeer has generated a SDP offer/answer or ICE candidate
+    // → encrypt and push to Firebase signaling channel
+    S.peer.on('signal', async (sd) => {
+      await pushSignal(sd).catch(console.error);
+    });
+
+    // P2P data channel is open
+    S.peer.on('connect', () => {
+      S.p2pOpen = true;
+      showBanner(false);
+      addSys('🔒 Secure P2P channel established. AES-GCM-256 active.');
+      renderStatus();
+      // Flush any queued messages
+      S.msgQueue.forEach(raw => S.peer.send(raw));
+      S.msgQueue = [];
+    });
+
+    // Incoming P2P data
+    S.peer.on('data', async (raw) => {
+      try {
+        const env  = JSON.parse(raw.toString());
+        const json = await decrypt(env.ct);
+        const msg  = JSON.parse(json);
+        handleIncoming(msg);
+      } catch (e) {
+        console.error('[P2P] Decrypt error:', e);
+      }
+    });
+
+    S.peer.on('error', (err) => {
+      addSys('⚠️ P2P error: ' + err.message);
+      showBanner(true);
+    });
+
+    S.peer.on('close', () => {
+      S.p2pOpen = false;
+      showBanner(true);
+      renderStatus();
+      addSys('⚠️ P2P connection closed.');
+    });
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     §13  MESSAGING
+  ────────────────────────────────────────────────────────────────── */
+
+  /**
+   * sendMessage()
+   * Reads textarea, builds a message object, encrypts it, and sends
+   * over the P2P data channel. If the channel isn't ready yet, the
+   * encrypted payload is buffered in RAM and flushed on connect.
+   */
+  async function sendMessage() {
+    const ta   = document.getElementById('msg-input');
+    const text = ta.value.trim();
+    if (!text) return;
+
+    ta.value = ''; ta.style.height = 'auto';
+    setTyping(false);
+
+    const msg = {
+      id:   genId(),
+      type: 'text',
+      body: text,
+      from: S.username,
+      burn: S.burnMode,
+      ts:   Date.now(),
+    };
+
+    addBubble(msg, 'sent');
+    await transmit(msg);
+  }
+
+  async function transmit(msg) {
+    try {
+      const ct  = await encrypt(JSON.stringify(msg));
+      const raw = JSON.stringify({ ct });
+      if (S.p2pOpen && S.peer && !S.peer.destroyed) {
+        S.peer.send(raw);
+      } else {
+        S.msgQueue.push(raw);
+        addSys('Message queued — will send when connected.');
+      }
+    } catch (e) {
+      addSys('⚠️ Encryption failed: ' + e.message);
+    }
+  }
+
+  function handleIncoming(msg) {
+    if (msg.type === 'text')  addBubble(msg, 'recv');
+    if (msg.type === 'media') addMediaBubble(msg, 'recv');
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     §14  ENCRYPTED MEDIA SHARING
+     Files are read as DataURL (Base64), encrypted as JSON, and sent
+     over the P2P data channel like any other message.
+  ────────────────────────────────────────────────────────────────── */
+  async function onMediaSelected(e) {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 6 * 1024 * 1024) { addSys('⚠️ File too large (max 6 MB).'); return; }
+
+    addSys('🔒 Encrypting media…');
+    const reader  = new FileReader();
+    reader.onload = async (ev) => {
+      const msg = {
+        id:   genId(),
+        type: 'media',
+        data: ev.target.result, // data:image/…;base64,…
+        mime: file.type,
+        name: file.name,
+        from: S.username,
+        burn: S.burnMode,
+        ts:   Date.now(),
+      };
+      addMediaBubble(msg, 'sent');
+      await transmit(msg);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     §15  DOM RENDERING
+  ────────────────────────────────────────────────────────────────── */
+  function addBubble(msg, dir) {
+    const row = document.createElement('div');
+    row.className  = `msg-row ${dir}`;
+    row.dataset.id = msg.id;
+
+    const bCls = 'bubble ' + dir + (msg.burn ? ' burn-msg' : '');
+    row.innerHTML = `
+      <div class="${bCls}">
+        <div class="bubble-body">${esc(msg.body)}</div>
+        <div class="bubble-meta">
+          ${msg.burn ? '<span class="bubble-burn">🔥 burn</span>' : ''}
+          <span class="bubble-time">${fmtTime(msg.ts)}</span>
+        </div>
+      </div>`;
+
+    appendMsg(row);
+
+    // Burn-on-read: only start timer when received
+    if (msg.burn && dir === 'recv') scheduleBurn(row, 30000);
+
+    S.messages.push({ ...msg, dir });
+  }
+
+  function addMediaBubble(msg, dir) {
+    const row = document.createElement('div');
+    row.className  = `msg-row ${dir}`;
+    row.dataset.id = msg.id;
+
+    const isImg = msg.mime?.startsWith('image/');
+    const isVid = msg.mime?.startsWith('video/');
+    let   media = `<span>${esc(msg.name || 'File')}</span>`;
+    if (isImg) media = `<img  class="msg-image" src="${msg.data}" alt="Image">`;
+    if (isVid) media = `<video class="msg-video" src="${msg.data}" controls></video>`;
+
+    const bCls = 'bubble ' + dir + (msg.burn ? ' burn-msg' : '');
+    row.innerHTML = `
+      <div class="${bCls}">
+        ${media}
+        <div class="bubble-meta">
+          ${msg.burn ? '<span class="bubble-burn">🔥 burn</span>' : ''}
+          <span class="bubble-time">${fmtTime(msg.ts)}</span>
+        </div>
+      </div>`;
+
+    appendMsg(row);
+    if (msg.burn && dir === 'recv') scheduleBurn(row, 30000);
+    S.messages.push({ ...msg, dir });
+  }
+
+  function addSys(text) {
+    const el = document.createElement('div');
+    el.className   = 'sys-msg';
+    el.textContent = text;
+    appendMsg(el);
+  }
+
+  function appendMsg(el) {
+    const c = document.getElementById('chat-messages');
+    c.appendChild(el);
+    c.scrollTop = c.scrollHeight;
+    // Remove typing bubble from screen once a real msg arrives
+    if (S.typBubbleEl) { S.typBubbleEl.remove(); S.typBubbleEl = null; }
+  }
+
+  // After `delay` ms, fade out and remove the bubble row
+  function scheduleBurn(rowEl, delay) {
+    setTimeout(() => {
+      rowEl.style.transition = 'opacity 0.8s, transform 0.8s';
+      rowEl.style.opacity    = '0';
+      rowEl.style.transform  = 'scale(0.85)';
+      setTimeout(() => rowEl.remove(), 900);
+    }, delay);
+  }
+
+  function renderTypingBubble() {
+    const c = document.getElementById('chat-messages');
+    if (S.peerTyping) {
+      if (!S.typBubbleEl) {
+        const row = document.createElement('div');
+        row.className = 'msg-row recv';
+        row.innerHTML = `<div class="typing-bubble">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>`;
+        c.appendChild(row);
+        c.scrollTop = c.scrollHeight;
+        S.typBubbleEl = row;
+      }
+    } else {
+      if (S.typBubbleEl) { S.typBubbleEl.remove(); S.typBubbleEl = null; }
+    }
+  }
+
+  function renderStatus() {
+    const dot    = document.getElementById('online-dot');
+    const status = document.getElementById('peer-status');
+    dot.classList.toggle('online', S.peerOnline);
+
+    if (S.peerTyping) {
+      status.textContent = 'Typing…';
+      status.className   = 'peer-status typing';
+    } else if (S.p2pOpen) {
+      status.textContent = '🟢 Connected · P2P · E2EE';
+      status.className   = 'peer-status p2p';
+    } else if (S.peerOnline) {
+      status.textContent = '🟡 Peer online · establishing P2P…';
+      status.className   = 'peer-status online';
+    } else {
+      status.textContent = 'Waiting for peer…';
+      status.className   = 'peer-status';
+    }
+  }
+
+  function showBanner(show) {
+    document.getElementById('conn-banner').classList.toggle('show', show);
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     §16  TYPING INDICATOR  — debounced Firebase write
+  ────────────────────────────────────────────────────────────────── */
+  function onTyping() {
+    // Auto-resize textarea
+    const ta = document.getElementById('msg-input');
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 100) + 'px';
+
+    setTyping(true);
+    if (S.typTimer) clearTimeout(S.typTimer);
+    S.typTimer = setTimeout(() => setTyping(false), 2200);
+  }
+
+  function setTyping(val) {
+    if (S.typRef) S.typRef.set(val).catch(() => {});
+  }
+
+  function onInputKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     §17  BURN-ON-READ TOGGLE
+  ────────────────────────────────────────────────────────────────── */
+  function toggleBurn() {
+    S.burnMode = !S.burnMode;
+    document.getElementById('burn-btn').classList.toggle('burn-on', S.burnMode);
+    addSys(S.burnMode ? '🔥 Burn-on-read ON — messages auto-delete in 30 s' : 'Burn-on-read OFF');
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     §18  NUKE  — destroys Firebase room for both parties
+  ────────────────────────────────────────────────────────────────── */
+  function openNukeModal()  { document.getElementById('nuke-modal').classList.add('open'); }
+  function closeNukeModal() { document.getElementById('nuke-modal').classList.remove('open'); }
+
+  async function executeNuke() {
+    closeNukeModal();
+    addSys('💥 Sending wipe command to peer…');
+
+    // Signal peer to wipe via Firebase
+    if (S.roomRef) {
+      try { await S.roomRef.child('nuke').set(true); } catch (_) {}
+      // Small delay so signal propagates, then obliterate entire room node
+      setTimeout(async () => {
+        try { await S.roomRef.remove(); } catch (_) {}
+        localWipe();
+      }, 1800);
+    } else {
+      localWipe();
+    }
+  }
+
+  function localWipe() {
+    wipeAll();
+    // Reset calculator display
+    C = { expr: '', display: '0', freshRes: false, parens: 0, lastOp: null };
+    calcRender();
+    showView('calc-view');
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     §19  UTILITY HELPERS
+  ────────────────────────────────────────────────────────────────── */
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  }
+  function fmtTime(ts) {
+    const d = new Date(ts);
+    return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+  }
+  function genId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     §20  BOOTSTRAP — show calculator on page load
+  ────────────────────────────────────────────────────────────────── */
+  showView('calc-view');
+  calcRender();
+
 </script>
 </body>
 </html>
